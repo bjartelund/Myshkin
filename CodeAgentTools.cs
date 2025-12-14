@@ -33,7 +33,7 @@ public class CodeAgentTools
 
     [KernelFunction]
     [Description("Write content to a file by patching it with unified diff format. Rember counts. Remember to remove line numbers from the file content before creating the diff.")]
-    public async Task<bool> WriteFile(string diffContent)
+    public async Task<string> WriteFile(string diffContent)
     {
 
         Console.WriteLine("Applying patch to file...");
@@ -43,10 +43,10 @@ public class CodeAgentTools
         {
             Console.WriteLine("Failed to apply patch:");
             Console.WriteLine(callResult.StdErr);
-            return false;
+            return callResult.StdErr;
         }
         Console.WriteLine("Patch applied successfully.");
-        return true;
+        return "Patch applied successfully.";
     }
 
 }

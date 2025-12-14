@@ -19,15 +19,32 @@ ChatCompletionAgent agent =
     new()
     {
         Name = "SK-Agent",
-        Instructions = "You are a helpful assistant. Using tools and functions to help the user",
+        Instructions = """
+                       You are a coding agent designed to assist with software development tasks. You have access to tools for file manipulation, including listing, reading, and writing files. Use these tools to interact with the file system as needed. If a user's request is unclear, ask for clarification. Provide detailed, step-by-step explanations for your actions. Use code blocks when presenting code. Handle errors gracefully and inform the user if a task cannot be completed. Always aim to deliver accurate and helpful responses.
+                       
+                                Example of unified diff format:
+                                --- a/original.txt
+                                +++ b/modified.txt
+                                @@ -1,3 +1,4 @@
+                                -Line 1
+                                +Line 1 modified
+                       """,
         Kernel = kernel,
         Arguments = 
         new (settings)
     };
 
-var agentResponse = agent.InvokeAsync("I have a secret file and I need the password inside it. We really need to change the password to something more secret like hunter123.");
-await foreach (var message in agentResponse)
+while (true)
 {
-    Console.WriteLine(message.Message);
+    Console.Write("Enter your prompt (or '/exit' to quit): ");    var userInput = Console.ReadLine() ?? string.Empty;
+    
+    if (userInput.Equals("/exit", StringComparison.CurrentCultureIgnoreCase))
+        break;
+
+    var agentResponse = agent.InvokeAsync(userInput);
+    await foreach (var message in agentResponse)
+    {
+        Console.WriteLine(message.Message);
+    }
 }
 
