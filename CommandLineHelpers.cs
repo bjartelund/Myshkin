@@ -2,12 +2,6 @@ using System.Diagnostics;
 
 namespace Myshkin;
 
-    
-using System;
-using System.Diagnostics;
-using System.Text;
-using System.Threading.Tasks;
-
 public static class CommandLineHelpers
 {
     /// <summary>
@@ -30,6 +24,13 @@ public static class CommandLineHelpers
             CreateNoWindow = true
         };
 
+        if (dryRun)
+        {
+            psi.ArgumentList.Add("--dry-run");
+        }
+
+        psi.ArgumentList.Add($"-p{strip}");
+
         using var proc = new Process();
         proc.StartInfo = psi;
         proc.Start();
@@ -46,6 +47,68 @@ public static class CommandLineHelpers
         Console.WriteLine(stderr);
 
         return (proc.ExitCode, stdout, stderr);
+    }
+
+    /// <summary>
+    /// Generates a file tree structure of the given directory, excluding common build/cache directories.
+    /// </summary>
+    public static IEnumerable<string> GenerateFileTree(string rootPath, int maxDepth = 10)
+    {
+        var excludeDirs = new HashSet<string> { "bin", "obj", ".git", ".vs", "node_modules", ".idea", "dist", "build" };
+        
+        if (!Directory.Exists(rootPath))
+        {
+            yield return $"Directory not found: {rootPath}";
+            yield break;
+        }
+
+        yield return rootPath + "/";
+        
+        foreach (var line in GetTreeLines(rootPath, "", excludeDirs, 0, maxDepth))
+        {
+            yield return line;
+        }
+    }
+
+    private static IEnumerable<string> GetTreeLines(
+        string currentPath,
+        string prefix,
+        HashSet<string> excludeDirs,
+        int currentDepth,
+        int maxDepth)
+    {
+        if (currentDepth >= maxDepth)
+            yield break;
+
+        var dirs = Directory.GetDirectories(currentPath)
+            .Where(d => !excludeDirs.Contains(Path.GetFileName(d)))
+            .OrderBy(d => d)
+            .ToList();
+
+        var files = Directory.GetFiles(currentPath)
+            .OrderBy(f => f)
+            .ToList();
+
+        var entries = dirs.Cast<string>().Concat(files).ToList();
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            var isLast = i == entries.Count - 1;
+            var connector = isLast ? "└── " : "├── ";
+            var name = Path.GetFileName(entry);
+
+            yield return prefix + connector + name;
+
+            if (Directory.Exists(entry))
+            {
+                var newPrefix = prefix + (isLast ? "    " : "│   ");
+                foreach (var subLine in GetTreeLines(entry, newPrefix, excludeDirs, currentDepth + 1, maxDepth))
+                {
+                    yield return subLine;
+                }
+            }
+        }
     }
 }
 

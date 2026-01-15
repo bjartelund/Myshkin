@@ -9,8 +9,9 @@ builder.AddOllamaChatCompletion(
 "qwen3:14b", new Uri("http://localhost:11434")
 );
 
-
-builder.Plugins.AddFromType<CodeAgentTools>();
+// Create CodeAgentTools with the current working directory as base
+var codeAgentTools = new CodeAgentTools(Directory.GetCurrentDirectory());
+builder.Plugins.AddFromObject(codeAgentTools);
 
 OllamaPromptExecutionSettings settings = new() { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(), Temperature = 0 };
 
