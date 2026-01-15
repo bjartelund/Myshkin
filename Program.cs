@@ -9,6 +9,7 @@ builder.AddOllamaChatCompletion(
 "qwen3:14b", new Uri("http://localhost:11434")
 );
 
+
 builder.Plugins.AddFromType<CodeAgentTools>();
 
 OllamaPromptExecutionSettings settings = new() { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(), Temperature = 0 };
@@ -22,6 +23,8 @@ ChatCompletionAgent agent =
         Instructions = """
                        You are a coding agent designed to assist with software development tasks. You have access to tools for file manipulation, including listing, reading, and writing files. Use these tools to interact with the file system as needed. If a user's request is unclear, ask for clarification. Provide detailed, step-by-step explanations for your actions. Use code blocks when presenting code. Handle errors gracefully and inform the user if a task cannot be completed. Always aim to deliver accurate and helpful responses.
                        
+                       If calling a tool fails , and attempting to call it again with modified input is unlikely to succeed, do not retry the call. Instead, inform the user about the failure and suggest alternative approaches or request additional information.
+                       
                                 Example of unified diff format:
                                 --- a/original.txt
                                 +++ b/modified.txt
@@ -34,6 +37,8 @@ ChatCompletionAgent agent =
         new (settings)
     };
 
+var thread = new ChatHistoryAgentThread();
+
 while (true)
 {
     Console.Write("Enter your prompt (or '/exit' to quit): ");    var userInput = Console.ReadLine() ?? string.Empty;
@@ -41,7 +46,7 @@ while (true)
     if (userInput.Equals("/exit", StringComparison.CurrentCultureIgnoreCase))
         break;
 
-    var agentResponse = agent.InvokeAsync(userInput);
+    var agentResponse = agent.InvokeAsync(userInput, thread);
     await foreach (var message in agentResponse)
     {
         Console.WriteLine(message.Message);
