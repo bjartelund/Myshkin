@@ -40,6 +40,8 @@ ChatCompletionAgent planningAgent =
                        Consider potential challenges and dependencies, and suggest strategies to address them. 
                        Provide clear, step-by-step instructions that can be easily followed. 
                         The planning output will go to a coding agent for implementation, so be precise and thorough in your planning.
+                        
+                        Prefer reading the Skeleton view of files when available to understand code structure without being overwhelmed by details.
                        """,
         Kernel = planKernel,
         Arguments =
@@ -64,6 +66,8 @@ ChatCompletionAgent codingAgent =
                        Always aim to deliver accurate and helpful responses.
                        
                        If calling a tool fails , and attempting to call it again with modified input is unlikely to succeed, do not retry the call. Instead, inform the user about the failure and suggest alternative approaches or request additional information.
+                       
+                       Always run the code format tool after making any changes to code files to ensure proper formatting.
                        
                        """,
         Kernel = coderKernel,

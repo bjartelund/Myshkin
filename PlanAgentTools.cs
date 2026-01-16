@@ -1,5 +1,8 @@
 using System.ComponentModel;
+using System.Text;
 using Microsoft.SemanticKernel;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Myshkin;
 
@@ -15,29 +18,49 @@ public class PlanAgentTools(string? baseDirectory = null)
         Console.WriteLine($"Showing file tree for {targetPath}");
         return CommandLineHelpers.GenerateFileTree(targetPath, maxDepth: 10);
     }
-
-    //[KernelFunction]
-    //[Description("List all files in a specific directory, optionally recursive")]
-    public IEnumerable<string> ListAllFiles(string? path = null, bool recursive = true)
+    
+    [KernelFunction]
+    [Description("Get a skeleton view of a C# file, hiding method bodies and showing] line numbers.")]
+    public static string GetSkeleton(string path)
     {
-        var targetPath = ResolvePath(path);
-        Console.WriteLine($"Listing files in {targetPath} (recursive: {recursive})");
+        var code = File.ReadAllText(path);
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+        var lines = code.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
 
-        if (!Directory.Exists(targetPath))
+        // Map out ranges to hide (exclusive of the opening/closing braces if you prefer)
+        var hiddenRanges = root.DescendantNodes()
+            .OfType<BlockSyntax>()
+            .Select(b => {
+                var span = tree.GetLineSpan(b.Span);
+                return new { Start = span.StartLinePosition.Line, End = span.EndLinePosition.Line };
+            })
+            .OrderBy(r => r.Start)
+            .ToList();
+
+        var sb = new StringBuilder();
+        for (int i = 0; i < lines.Length; i++)
         {
-            yield return $"Directory not found: {targetPath}";
-            yield break;
+            var currentRange = hiddenRanges.FirstOrDefault(r => i > r.Start && i < r.End);
+
+            if (currentRange != null)
+            {
+                // If we are at the first line of a hidden block, add the placeholder
+                if (i == currentRange.Start + 1)
+                {
+                    sb.AppendLine($"      :         /* ... {(currentRange.End - currentRange.Start - 1)} lines hidden ... */");
+                }
+                // Skip the rest of the lines in this range
+                i = currentRange.End - 1; 
+            }
+            else
+            {
+                // Print the line with its 1-based original index
+                sb.AppendLine($"{(i + 1),4}: {lines[i]}");
+            }
         }
 
-        var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = Directory.EnumerateFiles(targetPath, "*", searchOption).OrderBy(f => f);
-
-        foreach (var file in files)
-        {
-            var relativePath = Path.GetRelativePath(_baseDirectory, file);
-            yield return relativePath;
-            Console.WriteLine($"{relativePath}");
-        }
+        return sb.ToString();
     }
 
     [KernelFunction]

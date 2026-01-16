@@ -4,15 +4,17 @@ using Microsoft.SemanticKernel;
 namespace Myshkin;
 
 public class CodeAgentTools(string? baseDirectory = null)
-{
+{    
+    private readonly string _baseDirectory = baseDirectory ?? Directory.GetCurrentDirectory();
+
     [KernelFunction]
     [Description("Formats the project using the command line helpers.")]
     public static void FormatProject(string projectFilePath)
     {
+        Console.WriteLine($"Formatting project {projectFilePath}");
         CommandLineHelpers.FormatProject(projectFilePath);
     }
 
-    private readonly string _baseDirectory = baseDirectory ?? Directory.GetCurrentDirectory();
 
 
     [KernelFunction]
