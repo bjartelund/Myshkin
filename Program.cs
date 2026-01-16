@@ -74,4 +74,4 @@ ChatCompletionAgent codingAgent =
 
 ChatHistoryAgentThread thread = new();
 
-await AgentLoop.Loop(planningAgent,codingAgent,thread);
+await AgentLoop.Loop(planningAgent, codingAgent, thread);

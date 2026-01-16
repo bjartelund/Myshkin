@@ -5,12 +5,19 @@ namespace Myshkin;
 
 public class CodeAgentTools(string? baseDirectory = null)
 {
+    [KernelFunction]
+    [Description("Formats the project using the command line helpers.")]
+    public static void FormatProject(string projectFilePath)
+    {
+        CommandLineHelpers.FormatProject(projectFilePath);
+    }
+
     private readonly string _baseDirectory = baseDirectory ?? Directory.GetCurrentDirectory();
 
 
     [KernelFunction]
     [Description("Insert text at a specific line number in a file. Returns the updated file content with line numbers.")]
-    public static IEnumerable<string>  InsertTextAtLine(string path, string text, int lineNumber)
+    public static IEnumerable<string> InsertTextAtLine(string path, string text, int lineNumber)
     {
         Console.WriteLine($"Inserting text at line {lineNumber}: {text}");
         if (!File.Exists(path))
@@ -26,7 +33,7 @@ public class CodeAgentTools(string? baseDirectory = null)
         lines.Insert(lineNumber, text);
         originalText = string.Join(Environment.NewLine, lines);
         File.WriteAllText(path, originalText);
-        
+
         var index = 1;
         foreach (var line in lines)
         {
@@ -57,7 +64,7 @@ public class CodeAgentTools(string? baseDirectory = null)
         lines.RemoveRange(zeroBasedStart, endLineNumber - startLineNumber + 1);
         originalText = string.Join(Environment.NewLine, lines);
         File.WriteAllText(path, originalText);
-        
+
         var index = 1;
         foreach (var line in lines)
         {
