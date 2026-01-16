@@ -1,3 +1,4 @@
+
 using System.Diagnostics;
 
 namespace Myshkin;
@@ -5,57 +6,12 @@ namespace Myshkin;
 public static class CommandLineHelpers
 {
     /// <summary>
-    /// Applies unified diff content via stdin to the 'patch' command.
-    /// </summary>
-    public static async Task<(int ExitCode, string StdOut, string StdErr)> ApplyPatchTextAsync(
-        string workingDirectory,
-        string patchText,
-        int strip = 0,
-        bool dryRun = false)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "patch", // assumes 'patch' is in PATH
-            WorkingDirectory = workingDirectory,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        if (dryRun)
-        {
-            psi.ArgumentList.Add("--dry-run");
-        }
-
-        psi.ArgumentList.Add($"-p{strip}");
-
-        using var proc = new Process();
-        proc.StartInfo = psi;
-        proc.Start();
-
-        // Write the diff to stdin
-        await proc.StandardInput.WriteAsync(patchText);
-        proc.StandardInput.Close();
-
-        string stdout = await proc.StandardOutput.ReadToEndAsync();
-        string stderr = await proc.StandardError.ReadToEndAsync();
-        await proc.WaitForExitAsync();
-        Console.WriteLine(proc.ExitCode);
-        Console.WriteLine(stdout);
-        Console.WriteLine(stderr);
-
-        return (proc.ExitCode, stdout, stderr);
-    }
-
-    /// <summary>
     /// Generates a file tree structure of the given directory, excluding common build/cache directories.
     /// </summary>
     public static IEnumerable<string> GenerateFileTree(string rootPath, int maxDepth = 10)
     {
         var excludeDirs = new HashSet<string> { "bin", "obj", ".git", ".vs", "node_modules", ".idea", "dist", "build" };
-        
+
         if (!Directory.Exists(rootPath))
         {
             yield return $"Directory not found: {rootPath}";
@@ -63,9 +19,10 @@ public static class CommandLineHelpers
         }
 
         yield return rootPath + "/";
-        
+
         foreach (var line in GetTreeLines(rootPath, "", excludeDirs, 0, maxDepth))
         {
+            Console.WriteLine(line);
             yield return line;
         }
     }
@@ -89,7 +46,7 @@ public static class CommandLineHelpers
             .OrderBy(f => f)
             .ToList();
 
-        var entries = dirs.Cast<string>().Concat(files).ToList();
+        var entries = dirs.Concat(files).ToList();
 
         for (int i = 0; i < entries.Count; i++)
         {
@@ -110,5 +67,30 @@ public static class CommandLineHelpers
             }
         }
     }
-}
 
+    public static void FormatProject(string projectFilePath)
+    {
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"format {projectFilePath}",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = new Process();
+        process.StartInfo = processStartInfo;
+        process.Start();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Failed to format project. Error: {process.StandardError.ReadToEnd()}");
+        }
+    }
+
+
+
+}

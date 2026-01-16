@@ -3,82 +3,66 @@ using Microsoft.SemanticKernel;
 
 namespace Myshkin;
 
-public class CodeAgentTools
+public class CodeAgentTools(string? baseDirectory = null)
 {
-    private readonly string _baseDirectory;
+    private readonly string _baseDirectory = baseDirectory ?? Directory.GetCurrentDirectory();
 
-    public CodeAgentTools(string? baseDirectory = null)
-    {
-        _baseDirectory = baseDirectory ?? Directory.GetCurrentDirectory();
-    }
 
     [KernelFunction]
-    [Description("Display the directory structure as a tree, showing all files and directories (excluding build artifacts)")]
-    public IEnumerable<string> ShowFileTree(string? path = null)
+    [Description("Insert text at a specific line number in a file. Returns the updated file content with line numbers.")]
+    public static IEnumerable<string>  InsertTextAtLine(string path, string text, int lineNumber)
     {
-        var targetPath = ResolvePath(path);
-        Console.WriteLine($"Showing file tree for {targetPath}");
-        return CommandLineHelpers.GenerateFileTree(targetPath, maxDepth: 10);
-    }
-
-    [KernelFunction]
-    [Description("List all files in a specific directory, optionally recursive")]
-    public IEnumerable<string> ListAllFiles(string? path = null, bool recursive = true)
-    {
-        var targetPath = ResolvePath(path);
-        Console.WriteLine($"Listing files in {targetPath} (recursive: {recursive})");
-        
-        if (!Directory.Exists(targetPath))
+        Console.WriteLine($"Inserting text at line {lineNumber}: {text}");
+        if (!File.Exists(path))
         {
-            yield return $"Directory not found: {targetPath}";
-            yield break;
+            throw new FileNotFoundException("The specified file does not exist.", path);
         }
-
-        var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = Directory.EnumerateFiles(targetPath, "*", searchOption).OrderBy(f => f);
-        
-        foreach (var file in files)
+        var originalText = File.ReadAllText(path);
+        var lines = originalText.Split(["\r\n", "\r", "\n"], StringSplitOptions.None).ToList();
+        if (lineNumber < 0 || lineNumber > lines.Count)
         {
-            var relativePath = Path.GetRelativePath(_baseDirectory, file);
-            yield return relativePath;
+            throw new ArgumentOutOfRangeException(nameof(lineNumber), "Line number is out of range.");
         }
-    }
-
-    [KernelFunction]
-    [Description("Read the content of a file with line numbers added at the start of each line. Supports nested paths.")]
-    public IEnumerable<string> ReadFile(string filePath)
-    {
-        var fullPath = ResolvePath(filePath);
-        Console.WriteLine($"Reading file {fullPath}");
+        lines.Insert(lineNumber, text);
+        originalText = string.Join(Environment.NewLine, lines);
+        File.WriteAllText(path, originalText);
         
-        if (!File.Exists(fullPath))
-        { 
-            yield return $"File not found: {fullPath}";
-            yield break;
-        }
-
         var index = 1;
-        foreach (var line in File.ReadLines(fullPath))
+        foreach (var line in lines)
         {
             yield return index++ + " " + line;
         }
     }
 
     [KernelFunction]
-    [Description("Write content to a file by patching it with unified diff format. Remember to remove line numbers from the file content before creating the diff. Supports nested paths.")]
-    public async Task<string> WriteFile(string diffContent)
+    [Description("Remove text from a specific line number range in a file. Returns the updated file content with line numbers.")]
+    public static IEnumerable<string> RemoveTextAtLine(string path, int startLineNumber, int endLineNumber)
     {
-        Console.WriteLine("Applying patch...");
-        Console.WriteLine($"Applying patch to {diffContent}");
-        var callResult = await CommandLineHelpers.ApplyPatchTextAsync(_baseDirectory, diffContent, strip: 0, dryRun: false);
-        if (callResult.ExitCode != 0)
+        Console.WriteLine($"Removing text from line {startLineNumber} to {endLineNumber}");
+        if (!File.Exists(path))
         {
-            Console.WriteLine("Failed to apply patch:");
-            Console.WriteLine(callResult.StdErr);
-            return callResult.StdErr;
+            throw new FileNotFoundException("The specified file does not exist.", path);
         }
-        Console.WriteLine("Patch applied successfully.");
-        return "Patch applied successfully.";
+        var originalText = File.ReadAllText(path);
+        var lines = originalText.Split(["\r\n", "\r", "\n"], StringSplitOptions.None).ToList();
+        if (startLineNumber < 1 || startLineNumber > lines.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startLineNumber), "Start line number is out of range. Use 1-based indexing.");
+        }
+        if (endLineNumber < startLineNumber || endLineNumber > lines.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(endLineNumber), "End line number is out of range. Use 1-based indexing.");
+        }
+        var zeroBasedStart = startLineNumber - 1;
+        lines.RemoveRange(zeroBasedStart, endLineNumber - startLineNumber + 1);
+        originalText = string.Join(Environment.NewLine, lines);
+        File.WriteAllText(path, originalText);
+        
+        var index = 1;
+        foreach (var line in lines)
+        {
+            yield return index++ + " " + line;
+        }
     }
 
     /// <summary>
@@ -104,7 +88,7 @@ public class CodeAgentTools
 
         // Combine with base directory and resolve any .. or . references
         var resolvedPath = Path.GetFullPath(Path.Combine(_baseDirectory, path));
-        
+
         // Security check: ensure the resolved path is still within the base directory
         if (!resolvedPath.StartsWith(_baseDirectory))
         {
